@@ -1,0 +1,2 @@
+# The add-on has no separate Python dependencies.
+# It uses the existing openwebui-audio-bridge.service and chatterbox-nano.service.

@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Local runtime/model data
+/models/
+/voices/
+/chatterbox-voices/
+/backups/
+/transcript.txt
+
+# Build outputs
+/dist/
+*.xpi
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
