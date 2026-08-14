@@ -31,5 +31,13 @@
   },
   "icons": {"48": "icons/icon-48.png", "96": "icons/icon-96.png"},
   "web_accessible_resources": ["player.html", "player.js"],
-  "browser_specific_settings": {"gecko": {"id": "{a5677b62-903a-4d6e-aa24-155567aecdfb}"}}
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "{a5677b62-903a-4d6e-aa24-155567aecdfb}",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": ["websiteContent"]
+      }
+    }
+  }
 }
