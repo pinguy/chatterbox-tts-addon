@@ -11,7 +11,17 @@ command -v zip >/dev/null || { echo "zip is required" >&2; exit 1; }
 VERSION=$(python3 - "$ADDON/manifest.json" <<'PY'
 import json, sys
 with open(sys.argv[1], encoding='utf-8') as handle:
-    print(json.load(handle)['version'])
+    manifest = json.load(handle)
+
+gecko = manifest.get('browser_specific_settings', {}).get('gecko', {})
+collection = gecko.get('data_collection_permissions', {})
+if not collection.get('required') and not collection.get('optional'):
+    raise SystemExit(
+        'manifest.json is missing browser_specific_settings.gecko.'
+        'data_collection_permissions required by current Firefox AMO validation'
+    )
+
+print(manifest['version'])
 PY
 )
 
