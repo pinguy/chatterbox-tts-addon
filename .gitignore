@@ -18,6 +18,7 @@ venv/
 # Build outputs
 /dist/
 *.xpi
+!/chatterbox-tts-addon.xpi
 
 # Editors / OS
 .idea/

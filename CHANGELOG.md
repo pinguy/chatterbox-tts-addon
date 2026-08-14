@@ -4,12 +4,16 @@
 
 Current public release baseline.
 
-- Chatterbox-Nano local TTS backend.
+- Chatterbox-Nano local CPU TTS backend.
 - Shared browser job ownership across tabs and popup.
 - One-to-ten-line startup buffering with continued generation ahead of playback.
-- Stop handling that aborts queued browser work without needlessly keeping stale synthesis alive.
+- Stop handling that immediately halts playback and cancels queued browser work without forcibly killing an inference already running on the backend.
 - Merged multi-line WAV download.
 - Local Voice Lab for preparing, previewing and selecting reference voices.
-- Voice Lab support for local reference voices; release bundles may include optional starter references.
-- Idle model unloading for lower background RAM use.
-- Repository packaging cleanup: portable paths, root documentation, unsigned-XPI build helper and validation workflow.
+- Bundled 30-second **Vale** and **Arbor** starter references, with Vale as the initial default.
+- On-demand `chatterbox-nano.service` startup and idle service exit for lower background RAM use.
+- Portable installer paths and systemd user-service setup.
+- Current Firefox/AMO `websiteContent` data-collection declaration.
+- Desktop Firefox 140 minimum and Firefox Android 142 compatibility declaration in the submitted 4.0.2 manifest.
+- Root documentation, unsigned-XPI build helper and GitHub validation workflow.
+- Self-distribution XPI tracked at repository root.

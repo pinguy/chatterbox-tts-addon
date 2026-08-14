@@ -1,2 +1,3 @@
-# The add-on has no separate Python dependencies.
-# It uses the existing openwebui-audio-bridge.service and chatterbox-nano.service.
+# The Firefox extension runtime has no separate Python dependencies.
+# Run install.sh from the complete repository to create the backend virtual
+# environment and install the Chatterbox/Flask/audio dependencies it needs.
