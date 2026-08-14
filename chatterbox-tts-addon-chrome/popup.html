@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+*{box-sizing:border-box}body{width:400px;margin:0;font:13px system-ui,sans-serif;background:#0a0a0a;color:#fff}.container{background:linear-gradient(135deg,#1a1a2e,#16213e 50%,#0f3460);min-height:100%;border-top:1px solid #64ffda}.header{padding:16px 20px 14px;text-align:center;border-bottom:1px solid #ffffff1a}.logo{display:flex;align-items:center;justify-content:center;gap:7px;font-size:20px;font-weight:700}.logo-text{background:linear-gradient(135deg,#64ffda,#00bcd4);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{font-size:11px;color:#94a3b8;margin-top:4px}.content{padding:16px 20px;display:flex;flex-direction:column;gap:14px}.quick-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.quick-btn,button{border:0;border-radius:8px;padding:10px 8px;font:600 11px system-ui,sans-serif;cursor:pointer;transition:.15s}.quick-btn{background:#ffffff0d;color:#e2e8f0;border:1px solid #ffffff1a;display:flex;flex-direction:column;align-items:center;gap:3px}.quick-btn:hover{border-color:#64ffda66;background:#64ffda18}.form-group{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}.form-label{font-size:11px;font-weight:700;color:#cbd5e1;text-transform:uppercase;letter-spacing:.5px}textarea,select{width:100%;padding:10px 12px;background:#0f172acc;color:#fff;border:1px solid #ffffff1a;border-radius:8px;font:13px system-ui,sans-serif}textarea{height:90px;resize:none;line-height:1.4}textarea:focus,select:focus{outline:0;border-color:#64ffda;box-shadow:0 0 0 2px #64ffda1a}.primary-btn{width:100%;background:linear-gradient(135deg,#64ffda,#00bcd4);color:#071113;font-weight:800}.secondary-btn{width:100%;background:#ef444433;color:#fca5a5;border:1px solid #ef444455}.download-btn{width:100%;background:#3b82f633;color:#93c5fd;margin-bottom:8px}.status{padding:8px 12px;text-align:center;border-radius:6px;font-size:11px}.status.success{background:#22c55e26;color:#86efac}.status.error{background:#ef444426;color:#fca5a5}.status.loading{background:#f59e0b26;color:#fcd34d}.audio-controls audio{width:100%;margin-top:10px}#audioControls,#stopBtn,#audioPlayer,#status{display:none}
+</style>
+</head>
+<body>
+<div class="container">
+ <div class="header"><div class="logo"><span>🎙️</span><span class="logo-text">Chatterbox TTS</span></div><div class="subtitle">Neural text-to-speech synthesis</div></div>
+ <div class="content">
+  <div class="quick-actions">
+   <button class="quick-btn" id="getSelection"><span>📋</span><span>Selection</span></button>
+   <button class="quick-btn" id="getPage"><span>📄</span><span>Page Text</span></button>
+   <button class="quick-btn" id="clearText"><span>🗑️</span><span>Clear</span></button>
+   <button class="quick-btn" id="voiceLab"><span>🧬</span><span>Voice Lab</span></button>
+  </div>
+  <div class="form-group"><label class="form-label" for="textInput">Text to speak</label><textarea id="textInput" placeholder="Enter text here or use quick actions above..."></textarea></div>
+  <div class="form-group"><label class="form-label" for="startBuffer">Lines buffered before playback</label><select id="startBuffer"><option value="1">1 line</option><option value="2" selected>2 lines (default)</option><option value="3">3 lines</option><option value="4">4 lines</option><option value="5">5 lines</option><option value="6">6 lines</option><option value="7">7 lines</option><option value="8">8 lines</option><option value="9">9 lines</option><option value="10">10 lines</option></select></div>
+  <button id="speakBtn" class="primary-btn">🎵 Generate Speech</button>
+  <button id="stopBtn" class="secondary-btn">⏹️ Stop</button>
+  <div class="audio-controls" id="audioControls"><button id="downloadBtn" class="download-btn">📥 Download</button><button id="replayBtn" class="secondary-btn" style="display:none">▶️ Replay</button><audio id="audioPlayer" controls></audio></div>
+  <div id="status" class="status"></div>
+ </div>
+</div>
+<script src="popup.js"></script>
+</body>
+</html>

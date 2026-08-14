@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Chatterbox TTS setup</title>
+  <style>
+    body{margin:0;background:#0a0a0a;color:#fff;font:16px system-ui,sans-serif}main{max-width:760px;margin:50px auto;padding:30px;background:#111827;border:1px solid #334155;border-radius:14px}h1{margin-top:0;color:#64ffda}.card{padding:18px;margin:16px 0;background:#0f172a;border-radius:10px}.ok{border-left:5px solid #22c55e}.bad{border-left:5px solid #ef4444}button{padding:11px 16px;margin:5px;border:0;border-radius:8px;background:#00bcd4;color:#071113;font-weight:700;cursor:pointer}code{display:block;padding:14px;background:#020617;border-radius:8px;user-select:all;overflow:auto}.muted{color:#94a3b8}
+  </style>
+</head>
+<body><main>
+  <h1>Chatterbox TTS</h1>
+  <p>The add-on needs the local Chatterbox backend. Chrome can detect and use it, but cannot run system installers.</p>
+  <div id="status" class="card">Checking local services…</div>
+  <div id="install" class="card" hidden>
+    <h2>Install the backend</h2>
+    <p>Clone or extract the complete source tree, open a terminal in its add-on folder, then run:</p>
+    <code>bash install.sh</code>
+    <p class="muted">The installer downloads Chatterbox-Nano and uses all detected logical CPU cores except one. GitHub source checkouts can start with the model-default voice; create or select a reference in Voice Lab.</p>
+  </div>
+  <button id="recheck">Recheck</button><button id="lab">Open Voice Lab</button>
+  <script src="welcome.js"></script>
+</main></body></html>

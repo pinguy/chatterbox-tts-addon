@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Chatterbox TTS",
+  "version": "4.0.2",
+  "description": "Local text-to-speech using Chatterbox-Nano",
+  "minimum_chrome_version": "116",
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "offscreen",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:8010/*",
+    "http://127.0.0.1:8030/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_ui": {
+    "page": "welcome.html",
+    "open_in_tab": true
+  },
+  "content_scripts": [{
+    "matches": ["<all_urls>"],
+    "js": ["content.js"],
+    "css": ["styles.css"]
+  }],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Chatterbox TTS",
+    "default_icon": {"48": "icons/icon-48.png"}
+  },
+  "icons": {"48": "icons/icon-48.png", "96": "icons/icon-96.png"}
+}
