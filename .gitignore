@@ -16,9 +16,16 @@ venv/
 /transcript.txt
 
 # Build outputs
-/dist/
+dist/
 *.xpi
+*.crx
+*.zip
 !/chatterbox-tts-addon.xpi
+!/chatterbox-tts-chrome.crx
+
+# Private signing material
+*.pem
+*.key
 
 # Editors / OS
 .idea/
