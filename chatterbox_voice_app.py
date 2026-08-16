@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -33,6 +34,10 @@ MAX_UPLOAD = 500 * 1024 * 1024
 REFERENCE_DURATIONS = {10, 15, 20, 30, 45, 60}
 DEFAULT_REFERENCE_DURATION = 30
 DROPIN_NAME = "20-voice-app-default.conf"
+LEGACY_ACCELERATOR_SERVICES = (
+    "chatterbox-nano-accelerator.service",
+    "chatterbox-nano-gpu.service",
+)
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD
@@ -98,10 +103,50 @@ def service_active(service: str) -> bool:
         return False
 
 
+def service_environment(service: str) -> dict[str, str]:
+    try:
+        result = subprocess.run(
+            ["systemctl", "--user", "show", service, "--property=Environment", "--value"],
+            text=True,
+            capture_output=True,
+            timeout=10,
+            check=False,
+        )
+        if result.returncode != 0:
+            return {}
+        values: dict[str, str] = {}
+        for item in shlex.split(result.stdout.strip()):
+            if "=" in item:
+                key, value = item.split("=", 1)
+                values[key] = value
+        return values
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        return {}
+
+
+def backend_url_for_service(service: str, fallback: str) -> str:
+    port = service_environment(service).get("CHATTERBOX_PORT", "").strip()
+    if port.isdigit() and 1 <= int(port) <= 65535:
+        return f"http://127.0.0.1:{port}"
+    return fallback
+
+
+def accelerator_service() -> str:
+    candidates = []
+    for service in (ACCELERATOR_SERVICE, *LEGACY_ACCELERATOR_SERVICES):
+        if service and service != CPU_SERVICE and service not in candidates:
+            candidates.append(service)
+    for service in candidates:
+        if service_exists(service):
+            return service
+    return ACCELERATOR_SERVICE if ACCELERATOR_ENABLED else ""
+
+
 def managed_backends() -> list[tuple[str, str]]:
-    targets = [(CPU_SERVICE, CPU_URL)]
-    if ACCELERATOR_ENABLED or service_exists(ACCELERATOR_SERVICE):
-        targets.append((ACCELERATOR_SERVICE, ACCELERATOR_URL))
+    targets = [(CPU_SERVICE, backend_url_for_service(CPU_SERVICE, CPU_URL))]
+    service = accelerator_service()
+    if service:
+        targets.append((service, backend_url_for_service(service, ACCELERATOR_URL)))
     return targets
 
 
@@ -137,7 +182,7 @@ def configured_default_for(service: str) -> str:
 
 
 def current_default() -> str:
-    return backend_reference(CPU_URL)
+    return backend_reference(backend_url_for_service(CPU_SERVICE, CPU_URL))
 
 
 def configured_default() -> str:
@@ -284,7 +329,8 @@ def preview(voice_id: str):
         return jsonify({"error": "Enter some text"}), 400
     try:
         subprocess.run(["systemctl", "--user", "start", CPU_SERVICE], check=False)
-        response = requests.post(f"{CPU_URL}/v1/audio/speech", headers={"Authorization": f"Bearer {API_KEY}"}, json={"input": text, "model": "chatterbox-nano", "reference_audio": str(path / "reference.wav")}, timeout=300)
+        cpu_url = backend_url_for_service(CPU_SERVICE, CPU_URL)
+        response = requests.post(f"{cpu_url}/v1/audio/speech", headers={"Authorization": f"Bearer {API_KEY}"}, json={"input": text, "model": "chatterbox-nano", "reference_audio": str(path / "reference.wav")}, timeout=300)
         response.raise_for_status()
     except requests.RequestException as exc:
         detail = getattr(exc.response, "text", "")[-600:] if getattr(exc, "response", None) else str(exc)
