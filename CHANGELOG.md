@@ -10,6 +10,8 @@
 - Removed user-specific Python shebangs, home-directory paths, model paths and hardware labels.
 - Optional Whisper STT now requires explicit environment configuration instead of local machine paths.
 - Validation now guards against committed private keys and common machine-specific paths.
+- Fixed Voice Lab default-voice switching so the selected reference is applied and verified on both CPU and accelerator backends instead of leaving the accelerator pinned to the original starter voice.
+- Voice deletion now refuses to remove a reference that is still configured as the default on either backend.
 
 ## 4.1.1
 

@@ -2,6 +2,7 @@
 
 validate: clean
 	python3 -m py_compile chatterbox_nano_server.py openwebui_audio_bridge.py chatterbox_voice_app.py chatterbox-tts-addon/server.py
+	python3 -c 'p=open("chatterbox_voice_app.py",encoding="utf-8").read(); assert "ACCELERATOR_SERVICE" in p and "write_dropin(service, reference)" in p and "restore_dropin(service, backup)" in p'
 	python3 -m json.tool chatterbox-tts-addon/manifest.json >/dev/null
 	python3 -m json.tool chatterbox-tts-addon-chrome/manifest.json >/dev/null
 	bash -n chatterbox-tts-addon/install.sh build-xpi.sh chatterbox-tts-addon-chrome/build-zip.sh chatterbox-tts-addon-chrome/build-crx.sh
