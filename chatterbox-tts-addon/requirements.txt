@@ -1,3 +1,2 @@
-# The Firefox extension runtime has no separate Python dependencies.
-# Run install.sh from the complete repository to create the backend virtual
-# environment and install the Chatterbox/Flask/audio dependencies it needs.
+# The browser extension has no Python dependencies of its own.
+# Run install.sh from this directory to install the shared local backend.

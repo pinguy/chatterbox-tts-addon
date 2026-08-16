@@ -1,16 +1,12 @@
 # Chatterbox backend
 
-This project uses a local CPU Chatterbox-Nano service. GPU setup is intentionally outside the add-on and is not required.
+The Firefox and Chrome extensions use the same loopback bridge:
 
-- Model service: `chatterbox-nano.service` on `127.0.0.1:8020`
-- Add-on/API bridge: `openwebui-audio-bridge.service` on `127.0.0.1:8010`
-- Voice Lab: `chatterbox-voice-app.service` on `127.0.0.1:8030`
-- Health check: `http://127.0.0.1:8010/health`
+- Bridge: `127.0.0.1:8010`
+- CPU Chatterbox service: `127.0.0.1:8020`
+- Optional accelerator service: `127.0.0.1:8021`
+- Voice Lab: `127.0.0.1:8030`
 
-The bridge starts `chatterbox-nano.service` on demand when a TTS request arrives. The model service exits after its configured idle timeout and is started again automatically when needed.
+The browser can request `auto`, `cpu`, or `gpu`. Requests from OpenAI-compatible clients that do not specify a device continue to use CPU.
 
-The add-on requests one WAV per non-empty line and uses the popup's persisted one-to-ten-line startup buffer (two by default). Temporary queue gaps wait while the producer is still alive.
-
-Stop immediately halts browser playback and invalidates queued browser work. The bridge's cancellation epoch prevents later chunks from a cancelled job being accepted. It does **not** forcibly kill a Chatterbox inference that is already running; an unwanted result is discarded and the service exits normally after becoming idle.
-
-The managed reference library lives under `~/.local/share/chatterbox-tts/voices/`. The bundled installer seeds the 30-second Vale and Arbor references, with Vale used as the initial default.
+Both backend services are started on demand and exit after the configured idle period. Stop cancels queued browser work but does not forcibly kill an inference already executing.

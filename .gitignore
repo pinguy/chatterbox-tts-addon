@@ -15,15 +15,14 @@ venv/
 /backups/
 /transcript.txt
 
-# Build outputs
-dist/
+# Generated packages
+/dist/
+**/dist/
 *.xpi
 *.crx
 *.zip
-!/chatterbox-tts-addon.xpi
-!/chatterbox-tts-chrome.crx
 
-# Private signing material
+# Never commit private signing material
 *.pem
 *.key
 

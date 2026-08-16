@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Chatterbox TTS",
-  "version": "4.0.2",
+  "version": "4.2.0",
   "description": "Local text-to-speech using Chatterbox-Nano",
   "permissions": [
     "activeTab",
@@ -12,30 +12,50 @@
     "<all_urls>"
   ],
   "background": {
-    "scripts": ["background.js"],
+    "scripts": [
+      "background.js"
+    ],
     "persistent": true
   },
   "options_ui": {
     "page": "welcome.html",
     "open_in_tab": true
   },
-  "content_scripts": [{
-    "matches": ["<all_urls>"],
-    "js": ["content.js"],
-    "css": ["styles.css"]
-  }],
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "styles.css"
+      ]
+    }
+  ],
   "browser_action": {
     "default_popup": "popup.html",
     "default_title": "Chatterbox TTS",
-    "default_icon": {"48": "icons/icon-48.png"}
+    "default_icon": {
+      "48": "icons/icon-48.png"
+    }
   },
-  "icons": {"48": "icons/icon-48.png", "96": "icons/icon-96.png"},
-  "web_accessible_resources": ["player.html", "player.js"],
+  "icons": {
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png"
+  },
+  "web_accessible_resources": [
+    "player.html",
+    "player.js"
+  ],
   "browser_specific_settings": {
     "gecko": {
       "strict_min_version": "140.0",
       "data_collection_permissions": {
-        "required": ["websiteContent"]
+        "required": [
+          "websiteContent"
+        ]
       }
     },
     "gecko_android": {

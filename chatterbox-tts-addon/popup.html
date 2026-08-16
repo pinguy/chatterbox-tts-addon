@@ -18,6 +18,7 @@
   </div>
   <div class="form-group"><label class="form-label" for="textInput">Text to speak</label><textarea id="textInput" placeholder="Enter text here or use quick actions above..."></textarea></div>
   <div class="form-group"><label class="form-label" for="startBuffer">Lines buffered before playback</label><select id="startBuffer"><option value="1">1 line</option><option value="2" selected>2 lines (default)</option><option value="3">3 lines</option><option value="4">4 lines</option><option value="5">5 lines</option><option value="6">6 lines</option><option value="7">7 lines</option><option value="8">8 lines</option><option value="9">9 lines</option><option value="10">10 lines</option></select></div>
+  <div class="form-group"><label class="form-label" for="deviceSelect">Synthesis device</label><select id="deviceSelect"><option value="auto" selected>Auto · best available</option><option value="cpu">CPU</option><option value="gpu">GPU / accelerator · checking…</option></select></div>
   <button id="speakBtn" class="primary-btn">🎵 Generate Speech</button>
   <button id="stopBtn" class="secondary-btn">⏹️ Stop</button>
   <div class="audio-controls" id="audioControls"><button id="downloadBtn" class="download-btn">📥 Download</button><button id="replayBtn" class="secondary-btn" style="display:none">▶️ Replay</button><audio id="audioPlayer" controls></audio></div>

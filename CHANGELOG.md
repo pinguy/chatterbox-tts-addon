@@ -1,38 +1,25 @@
 # Changelog
 
+## 4.2.0
+
+- Reworked CPU/GPU selection to be machine-independent: **Auto / CPU / GPU-accelerator** instead of naming a specific graphics card.
+- Browser queries bridge capabilities and disables the accelerator option when none is configured.
+- Saved device selection now applies consistently to popup, context menu and in-page controls in both Firefox and Chrome.
+- Added a generic optional accelerator service on port `8021`; CPU remains the universal fallback on port `8020`.
+- Installer can auto-detect a usable PyTorch accelerator and supports environment overrides for custom PyTorch/device setups.
+- Removed user-specific Python shebangs, home-directory paths, model paths and hardware labels.
+- Optional Whisper STT now requires explicit environment configuration instead of local machine paths.
+- Validation now guards against committed private keys and common machine-specific paths.
+
+## 4.1.1
+
+- Fixed device selection being ignored by context-menu and in-page speech entry points.
+
+## 4.1.0
+
+- Added browser-selectable CPU/GPU synthesis routing.
+
 ## 4.0.2
 
-Current public release baseline.
-
-### Shared backend
-
-- Chatterbox-Nano local CPU TTS backend.
-- One-to-ten-line startup buffering with continued generation ahead of playback.
-- Stop handling that immediately halts playback and cancels queued browser work without forcibly killing an inference already running on the backend.
-- Merged multi-line WAV download.
-- Local Voice Lab for preparing, previewing and selecting reference voices.
-- Bundled 30-second **Vale** and **Arbor** starter references, with Vale as the initial default.
-- On-demand `chatterbox-nano.service` startup and idle service exit for lower background RAM use.
-- Portable installer paths and systemd user-service setup.
-
-### Firefox
-
-- Firefox Manifest V2 add-on with shared job ownership across tabs and popup.
-- Current Firefox/AMO `websiteContent` data-collection declaration.
-- Desktop Firefox 140 minimum and Firefox Android 142 compatibility declaration in the submitted 4.0.2 manifest.
-- Self-distribution XPI tracked at repository root.
-
-### Chrome / Chromium
-
-- Added Manifest V3 Chrome/Chromium port using the same local backend and Voice Lab.
-- Persistent Firefox background page adapted to an MV3 service worker with UI keepalives during active jobs.
-- Tab audio playback moved to an MV3 offscreen document.
-- Async messaging adapted to Chrome's `sendResponse` model and script injection moved to `scripting.executeScript`.
-- Added Chrome Web Store ZIP builder and CRX3 builder.
-- Chrome private signing material is kept outside the repository by default; generated `dist/` output is ignored.
-- Root CRX kept as the current self-distribution/archive package.
-
-### Repository
-
-- Cross-browser README and browser-specific documentation.
-- GitHub validation now checks both Firefox MV2 and Chrome MV3 source/package structure.
+- Chatterbox-Nano local TTS backend.
+- Firefox and Chrome browser integration, Voice Lab, buffering, WAV download and idle backend shutdown.

@@ -7,7 +7,9 @@ const audioControls = document.getElementById('audioControls');
 const downloadBtn = document.getElementById('downloadBtn');
 const replayBtn = document.getElementById('replayBtn');
 const startBufferSelect = document.getElementById('startBuffer');
+const deviceSelect = document.getElementById('deviceSelect');
 let startBuffer = 2;
+let device = 'auto';
 let queue = [];
 let allBlobs = [];
 let currentUrl = null;
@@ -28,8 +30,9 @@ document.addEventListener('DOMContentLoaded', () => {
     replayBtn.addEventListener('click', replayAudio);
     audioPlayer.addEventListener('ended', () => { playing = false; playNext(); });
     startBufferSelect.addEventListener('change', saveStartBuffer);
+    deviceSelect.addEventListener('change', saveDevice);
     loadStartBuffer();
-    checkServer();
+    loadDevice().then(checkServer);
 });
 
 function validStartBuffer(value) {
@@ -48,6 +51,24 @@ async function saveStartBuffer() {
     startBufferSelect.value = String(startBuffer);
     await browser.storage.local.set({ startBuffer });
     showStatus(`Playback will start after ${startBuffer} buffered line${startBuffer === 1 ? '' : 's'}`, 'success');
+}
+
+function validDevice(value) {
+    return ['auto', 'cpu', 'gpu'].includes(value) ? value : 'auto';
+}
+
+async function loadDevice() {
+    const saved = await browser.storage.local.get('device').catch(() => ({}));
+    device = validDevice(saved.device);
+    deviceSelect.value = device;
+}
+
+async function saveDevice() {
+    device = validDevice(deviceSelect.value);
+    deviceSelect.value = device;
+    await browser.storage.local.set({ device });
+    const labels = { auto: 'Synthesis device set to Auto', cpu: 'Synthesis will use the CPU', gpu: 'Synthesis will use the configured GPU / accelerator' };
+    showStatus(labels[device], 'success');
 }
 
 function showStatus(message, type = '') {
@@ -87,7 +108,7 @@ async function stopSpeech(killModel = true) {
     clearPlayer();
     setActive(false);
     if (killModel) await browser.runtime.sendMessage({ action: 'stopTTS' }).catch(() => {});
-    showStatus(killModel ? 'Speech stopped and Chatterbox unloaded' : 'Speech stopped', 'success');
+    showStatus('Speech stopped', 'success');
 }
 
 function finishPlayback() {
@@ -126,7 +147,7 @@ async function generateSpeech() {
     setActive(true);
     ownerToken = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
     showStatus('Generating Chatterbox speech…', 'loading');
-    const result = await browser.runtime.sendMessage({ action: 'generateTTS', text: textInput.value, clientToken: ownerToken }).catch(error => ({ success: false, error: error.message }));
+    const result = await browser.runtime.sendMessage({ action: 'generateTTS', text: textInput.value, clientToken: ownerToken, device }).catch(error => ({ success: false, error: error.message }));
     if (!result || !result.success) {
         setActive(false);
         showStatus((result && result.error) || 'Could not start speech', 'error');
@@ -227,8 +248,26 @@ async function getPageText() {
     } catch (error) { showStatus(error.message, 'error'); }
 }
 async function checkServer() {
-    try { const response = await fetch('http://127.0.0.1:8010/health'); if (!response.ok) throw new Error(); showStatus('Chatterbox bridge connected ✓', 'success'); }
-    catch (_) { showStatus('Chatterbox bridge is not running', 'error'); }
+    try {
+        const response = await fetch('http://127.0.0.1:8010/health', { cache: 'no-store' });
+        if (!response.ok) throw new Error();
+        const health = await response.json();
+        const accelerator = (health.synthesis_devices || []).find(item => item.id === 'gpu');
+        const gpuOption = deviceSelect.querySelector('option[value="gpu"]');
+        const available = Boolean(accelerator && accelerator.available);
+        gpuOption.disabled = !available;
+        gpuOption.textContent = available ? `GPU / accelerator · ${accelerator.label || 'available'}` : 'GPU / accelerator · unavailable';
+        if (device === 'gpu' && !available) {
+            device = 'auto';
+            deviceSelect.value = device;
+            await browser.storage.local.set({ device });
+            showStatus('GPU / accelerator is unavailable; switched to Auto (CPU)', 'success');
+            return;
+        }
+        showStatus(`Chatterbox bridge connected ✓${available ? ' · accelerator available' : ' · CPU only'}`, 'success');
+    } catch (_) {
+        showStatus('Chatterbox bridge is not running', 'error');
+    }
 }
 async function openVoiceLab() {
     try { const response = await fetch('http://127.0.0.1:8030/api/status', { cache: 'no-store' }); if (!response.ok) throw new Error(); await browser.tabs.create({ url: 'http://127.0.0.1:8030/' }); }

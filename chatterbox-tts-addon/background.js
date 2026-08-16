@@ -2,9 +2,9 @@ const TTS_URL = 'http://127.0.0.1:8010/v1/audio/speech';
 const STOP_URL = 'http://127.0.0.1:8010/v1/audio/stop';
 const TTS_KEY = 'local-dev-key';
 
-// Chatterbox is one shared local model, so the extension has one owner at a
-// time. Keeping ownership here prevents tabs and the popup from fighting over
-// the same backend.
+// The browser has one active playback/generation owner at a time. CPU and
+// accelerator backends may be separate processes, but browser jobs still replace
+// one another cleanly instead of competing for playback.
 let activeJob = null;
 
 function createContextMenuItems() {
@@ -37,7 +37,7 @@ function newToken() {
     return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 }
 
-async function terminateModel() {
+async function cancelBackendSpeech() {
     try {
         await fetch(STOP_URL, {
             method: 'POST',
@@ -63,7 +63,7 @@ async function stopActive(killModel = true) {
         job.controller.abort();
         await sendToOwner(job, { action: 'stopTTSAudio' });
     }
-    if (killModel) await terminateModel();
+    if (killModel) await cancelBackendSpeech();
 }
 
 async function produce(job, lines) {
@@ -73,7 +73,7 @@ async function produce(job, lines) {
             const response = await fetch(TTS_URL, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${TTS_KEY}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ model: 'tts-1', voice: 'rhizome', input: lines[index] }),
+                body: JSON.stringify({ model: 'tts-1', voice: 'rhizome', input: lines[index], device: job.device }),
                 signal: job.controller.signal
             });
             if (!response.ok) throw new Error(`Chatterbox server error ${response.status}: ${(await response.text()).slice(0, 180)}`);
@@ -88,7 +88,7 @@ async function produce(job, lines) {
             if (delivered === null && activeJob === job) {
                 activeJob = null;
                 job.controller.abort();
-                await terminateModel();
+                await cancelBackendSpeech();
                 return;
             }
         }
@@ -101,19 +101,32 @@ async function produce(job, lines) {
         activeJob = null;
         if (error.name !== 'AbortError') {
             await sendToOwner(job, { action: 'ttsError', error: error.message });
-            await terminateModel();
+            await cancelBackendSpeech();
         }
     }
 }
 
-async function startSpeech(text, owner, clientToken) {
+function validDevice(value) {
+    return ['auto', 'cpu', 'gpu'].includes(value) ? value : 'auto';
+}
+
+async function storedDevice() {
+    // Every entry point (context menu, in-page button, popup) honours the same
+    // saved choice. Auto lets the bridge pick an accelerator when one exists.
+    const saved = await browser.storage.local.get('device').catch(() => ({}));
+    return validDevice(saved.device);
+}
+
+async function startSpeech(text, owner, clientToken, device) {
     const lines = splitLines(text || '');
     if (!lines.length) return { success: false, error: 'No text to speak' };
     await stopActive(Boolean(activeJob));
+    const resolvedDevice = validDevice(device || await storedDevice());
     const job = {
         controller: new AbortController(),
         owner,
         token: clientToken || newToken(),
+        device: resolvedDevice,
         producerComplete: false
     };
     activeJob = job;
@@ -141,7 +154,7 @@ browser.runtime.onMessage.addListener((request, sender) => {
     const tabId = sender.tab && sender.tab.id;
     if (request.action === 'generateTTS') {
         const owner = tabId ? { kind: 'tab', tabId } : { kind: 'popup' };
-        return startSpeech(request.text, owner, request.clientToken);
+        return startSpeech(request.text, owner, request.clientToken, request.device);
     }
     if (request.action === 'stopTTS') {
         return stopActive(true).then(() => ({ success: true }));

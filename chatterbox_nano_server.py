@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CPU-only OpenAI-compatible Chatterbox-Nano service for Open WebUI."""
+"""OpenAI-compatible Chatterbox-Nano service for local CPU or accelerator use."""
 from __future__ import annotations
 
 import io
@@ -13,27 +13,63 @@ import soundfile as sf
 import torch
 from flask import Flask, Response, jsonify, request
 
-EXTRA_SITE_PACKAGES = os.environ.get("CHATTERBOX_EXTRA_SITE_PACKAGES", "")
+BASE_DIR = Path(__file__).resolve().parent
+EXTRA_SITE_PACKAGES = os.environ.get("CHATTERBOX_EXTRA_SITE_PACKAGES", "").strip()
 if EXTRA_SITE_PACKAGES:
-    site.addsitedir(EXTRA_SITE_PACKAGES)
+    site.addsitedir(str(Path(EXTRA_SITE_PACKAGES).expanduser()))
 
 from chatterbox.tts_turbo import ChatterboxTurboTTS
 
-MODEL_DIR = Path(os.environ.get("CHATTERBOX_MODEL_DIR", str(Path(__file__).resolve().parent / "models/chatterbox-nano"))).expanduser()
+MODEL_DIR = Path(os.environ.get("CHATTERBOX_MODEL_DIR", str(BASE_DIR / "models/chatterbox-nano"))).expanduser()
 REFERENCE_WAV_RAW = os.environ.get("CHATTERBOX_REFERENCE_WAV", "").strip()
 REFERENCE_WAV = Path(REFERENCE_WAV_RAW).expanduser() if REFERENCE_WAV_RAW else None
-REFERENCE_ROOT = Path(os.environ.get("CHATTERBOX_REFERENCE_ROOT", str(Path(__file__).resolve().parent / "chatterbox-voices"))).resolve()
+REFERENCE_ROOT = Path(os.environ.get("CHATTERBOX_REFERENCE_ROOT", str(BASE_DIR / "voices"))).expanduser().resolve()
 API_KEY = os.environ.get("CHATTERBOX_API_KEY", "local-dev-key")
 MAX_INPUT_CHARS = int(os.environ.get("CHATTERBOX_MAX_INPUT_CHARS", "4000"))
 TORCH_INTEROP_THREADS = int(os.environ.get("CHATTERBOX_INTEROP_THREADS", "1"))
-DEVICE = os.environ.get("CHATTERBOX_DEVICE", "cpu")
+DEVICE = os.environ.get("CHATTERBOX_DEVICE", "cpu").strip().lower() or "cpu"
 IDLE_SHUTDOWN_SECONDS = float(os.environ.get("CHATTERBOX_IDLE_SECONDS", "1200"))
 IDLE_POLL_SECONDS = float(os.environ.get("CHATTERBOX_IDLE_POLL_SECONDS", "30"))
+
+
+def device_available(device: str) -> bool:
+    if device == "cpu":
+        return True
+    if device.startswith("cuda"):
+        return bool(torch.cuda.is_available())
+    if device.startswith("xpu"):
+        return bool(hasattr(torch, "xpu") and torch.xpu.is_available())
+    if device.startswith("mps"):
+        return bool(hasattr(torch.backends, "mps") and torch.backends.mps.is_available())
+    try:
+        torch.empty(1, device=device)
+        return True
+    except Exception:
+        return False
+
+
+def device_label(device: str) -> str:
+    if device.startswith("cuda") and torch.cuda.is_available():
+        try:
+            return torch.cuda.get_device_name(torch.cuda.current_device())
+        except Exception:
+            return "CUDA accelerator"
+    if device.startswith("xpu"):
+        return "XPU accelerator"
+    if device.startswith("mps"):
+        return "MPS accelerator"
+    return "CPU" if device == "cpu" else device
+
 
 if not MODEL_DIR.is_dir():
     raise SystemExit(f"Chatterbox model directory missing: {MODEL_DIR}")
 if REFERENCE_WAV is not None and not REFERENCE_WAV.is_file():
     raise SystemExit(f"Chatterbox reference audio missing: {REFERENCE_WAV}")
+if not device_available(DEVICE):
+    raise SystemExit(
+        f"Requested Chatterbox device {DEVICE!r} is not available in this PyTorch runtime. "
+        "Use CPU or install a PyTorch build for your accelerator."
+    )
 
 app = Flask(__name__)
 generate_lock = Lock()
@@ -49,17 +85,20 @@ activity_lock = Lock()
 last_activity = time.time()
 active_requests = 0
 
+
 def mark_activity(delta: int = 0) -> None:
     global last_activity, active_requests
     with activity_lock:
         active_requests += delta
         last_activity = time.time()
 
+
 def idle_seconds() -> float:
     with activity_lock:
         if active_requests > 0:
             return 0.0
         return time.time() - last_activity
+
 
 def idle_watchdog() -> None:
     while True:
@@ -70,11 +109,13 @@ def idle_watchdog() -> None:
             idle = idle_seconds()
             if idle < IDLE_SHUTDOWN_SECONDS:
                 continue
-            app.logger.warning("Chatterbox idle for %.0fs; unloading model and exiting", idle)
+            app.logger.warning("Chatterbox idle for %.0fs; exiting", idle)
             os._exit(0)
+
 
 def authorised() -> bool:
     return request.headers.get("Authorization", "") == f"Bearer {API_KEY}"
+
 
 def allowed_reference(raw_path: object) -> Path | None:
     if not raw_path:
@@ -88,13 +129,31 @@ def allowed_reference(raw_path: object) -> Path | None:
         raise ValueError("reference_audio must be an existing WAV file")
     return candidate
 
+
 @app.get("/health")
 def health():
-    return jsonify({"ok": True, "backend": "chatterbox-nano", "device": DEVICE, "model_dir": str(MODEL_DIR), "reference_wav": str(REFERENCE_WAV) if REFERENCE_WAV is not None else "", "active_reference": active_reference, "sample_rate": model.sr, "torch_num_threads": torch.get_num_threads(), "torch_interop_threads": torch.get_num_interop_threads(), "uptime_seconds": round(time.time() - started_at, 1), "idle_seconds": round(idle_seconds(), 1), "idle_shutdown_seconds": IDLE_SHUTDOWN_SECONDS, "active_requests": active_requests})
+    return jsonify({
+        "ok": True,
+        "backend": "chatterbox-nano",
+        "device": DEVICE,
+        "device_label": device_label(DEVICE),
+        "model_dir": str(MODEL_DIR),
+        "reference_wav": str(REFERENCE_WAV) if REFERENCE_WAV is not None else "",
+        "active_reference": active_reference,
+        "sample_rate": model.sr,
+        "torch_num_threads": torch.get_num_threads(),
+        "torch_interop_threads": torch.get_num_interop_threads(),
+        "uptime_seconds": round(time.time() - started_at, 1),
+        "idle_seconds": round(idle_seconds(), 1),
+        "idle_shutdown_seconds": IDLE_SHUTDOWN_SECONDS,
+        "active_requests": active_requests,
+    })
+
 
 @app.get("/v1/models")
 def models():
     return jsonify({"object": "list", "data": [{"id": "chatterbox-nano", "object": "model", "created": int(started_at), "owned_by": "local"}]})
+
 
 @app.post("/v1/audio/speech")
 @app.post("/audio/speech")
@@ -118,6 +177,7 @@ def speech():
             seed = int(seed)
         except (TypeError, ValueError):
             return jsonify({"error": "seed must be an integer"}), 400
+
     started = time.monotonic()
     mark_activity(+1)
     try:
@@ -137,13 +197,16 @@ def speech():
         return jsonify({"error": f"chatterbox generation failed: {exc}"}), 500
     finally:
         mark_activity(-1)
+
     samples = wav.squeeze().detach().cpu().numpy()
     output = io.BytesIO()
     sf.write(output, samples, model.sr, format="WAV", subtype="PCM_16")
     response = Response(output.getvalue(), mimetype="audio/wav")
     response.headers["X-Chatterbox-Generate-Seconds"] = f"{time.monotonic() - started:.3f}"
     response.headers["X-Chatterbox-Audio-Seconds"] = f"{len(samples) / model.sr:.3f}"
+    response.headers["X-Chatterbox-Device"] = DEVICE
     return response
+
 
 if IDLE_SHUTDOWN_SECONDS > 0:
     Thread(target=idle_watchdog, name="idle-watchdog", daemon=True).start()

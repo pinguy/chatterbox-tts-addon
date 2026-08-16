@@ -1,69 +1,60 @@
 # Chatterbox TTS for Firefox and Chrome
 
-Local-first browser text-to-speech built around **Chatterbox-Nano**. Firefox and Chrome share the same local backend and Voice Lab; only the browser-extension layer differs.
+Local-first browser text-to-speech built around **Chatterbox-Nano**. Firefox and Chrome/Chromium share the same local backend and Voice Lab; only the browser-extension layer differs.
 
-**Current release:** 4.0.2  
+**Development version:** 4.2.0  
 **Primary target:** Linux desktop  
-**Firefox package:** [`chatterbox-tts-addon.xpi`](chatterbox-tts-addon.xpi)  
-**Chrome/Chromium package:** [`chatterbox-tts-chrome.crx`](chatterbox-tts-chrome.crx)
+**Recommended CPU:** 6+ cores  
+**Acceleration:** optional; CPU always remains available
 
-## Features
+## What it does
 
-- Speak selected text, whole pages, or text entered in the popup.
+- Speaks selected text, whole pages, or text entered in the popup.
+- Firefox and Chrome/Chromium extensions.
 - Context-menu and floating-speaker controls.
-- Line-aware buffering so slower CPU inference can generate ahead of playback.
-- Shared job ownership across tabs and the popup.
-- Stop/cancel handling for playback and queued browser work.
-- Replay and correctly merged multi-line WAV download.
+- Line-aware buffering so slower inference can generate ahead of playback.
+- Replay and merged WAV download.
 - Local Voice Lab at `http://127.0.0.1:8030/`.
-- Create reference voices from audio or video with FFmpeg preprocessing.
-- Switch the default Chatterbox reference voice from Voice Lab.
+- Creates reference voices from audio/video with FFmpeg.
 - Bundled 30-second **Vale** and **Arbor** starter references.
-- Chatterbox starts only when needed and exits after an idle timeout.
+- Starts Chatterbox on demand and releases resources after an idle timeout.
+- Browser-selectable **Auto / CPU / GPU-accelerator** synthesis mode.
+
+All browser traffic goes to loopback only. This project does not send page text to a hosted TTS service.
 
 ## Browser builds
 
-| Browser | Source | Manifest | Normal local install |
+| Browser | Source | Manifest | Development install |
 | --- | --- | --- | --- |
-| Firefox | `chatterbox-tts-addon/` | Manifest V2 | signed XPI or `about:debugging` |
-| Chrome / Chromium | `chatterbox-tts-addon-chrome/` | Manifest V3 | **Load unpacked** from `chrome://extensions` |
+| Firefox | `chatterbox-tts-addon/` | Manifest V2 | `about:debugging` |
+| Chrome / Chromium | `chatterbox-tts-addon-chrome/` | Manifest V3 | **Load unpacked** in `chrome://extensions` |
 
-Both browser builds call the same loopback services:
+Both builds use the same backend:
 
 ```text
 Firefox / Chrome
     |
-    | local TTS requests
     v
 127.0.0.1:8010  openwebui_audio_bridge.py
     |
-    | starts on demand
-    v
-127.0.0.1:8020  chatterbox_nano_server.py
+    +--> CPU service        127.0.0.1:8020
+    |
+    +--> accelerator service 127.0.0.1:8021 (only when configured)
 
 127.0.0.1:8030  chatterbox_voice_app.py (Voice Lab)
-    |
-    +-------------------------------> 127.0.0.1:8020
 ```
 
-The installer creates three systemd user units. The bridge and Voice Lab are enabled immediately; `chatterbox-nano.service` is started by the bridge when speech is requested and exits after its configured idle period.
+## Install the backend
 
-## Requirements
+Requirements:
 
-The bundled backend installer is intended for a Linux desktop with:
-
-- Python 3 with `venv` support
+- Python 3 with `venv`
 - Git
 - FFmpeg / FFprobe
 - systemd user services
-- Firefox and/or a Chromium-based browser
-- Internet access during first install to fetch Python packages and the Chatterbox-Nano model
+- Internet access during the first install
 
-The default backend is CPU-only. CUDA is not required.
-
-`zip` is required only when building browser packages yourself. Chrome CRX packing additionally requires Chrome/Chromium and OpenSSL.
-
-## Quick backend install
+Clone and install:
 
 ```bash
 git clone https://github.com/pinguy/chatterbox-tts-addon.git
@@ -71,7 +62,14 @@ cd chatterbox-tts-addon
 bash chatterbox-tts-addon/install.sh
 ```
 
-The installer creates `~/.local/share/chatterbox-tts/`, installs a private Python environment, downloads Chatterbox-Nano, seeds the bundled voice references, installs the systemd user units, and starts the bridge and Voice Lab.
+The installer uses portable paths under:
+
+```text
+~/.local/share/chatterbox-tts/
+~/.config/systemd/user/
+```
+
+No user-specific home directory is hard-coded.
 
 Useful checks:
 
@@ -81,83 +79,82 @@ systemctl --user status chatterbox-voice-app.service
 curl http://127.0.0.1:8010/health
 ```
 
-Voice Lab:
+## CPU / GPU / accelerator selection
 
-```text
-http://127.0.0.1:8030/
+The popup now offers:
+
+- **Auto** — uses the configured accelerator when one is available, otherwise CPU.
+- **CPU** — always uses the CPU backend.
+- **GPU / accelerator** — only enabled when the backend reports an accelerator service.
+
+The choice is stored in the browser and is honoured by popup speech, the context menu, and the in-page speaker control.
+
+The installer always sets up CPU support. In its default `auto` mode it also checks for a usable accelerator. If the installed PyTorch runtime exposes one, a second on-demand service is created on port `8021`.
+
+For unusual PyTorch/accelerator setups, the installer can be guided without editing source code:
+
+```bash
+CHATTERBOX_ENABLE_GPU=1 \
+CHATTERBOX_TORCH_MODE=default \
+bash chatterbox-tts-addon/install.sh
 ```
+
+Or provide a custom PyTorch wheel index/device:
+
+```bash
+CHATTERBOX_ENABLE_GPU=1 \
+CHATTERBOX_TORCH_INDEX_URL=https://example.invalid/pytorch-index \
+CHATTERBOX_GPU_DEVICE=cuda \
+bash chatterbox-tts-addon/install.sh
+```
+
+Replace the example index/device with whatever is appropriate for the local PyTorch platform. If accelerator setup fails, CPU remains usable.
+
+Existing OpenAI/Open WebUI clients that do not send a device hint continue to use CPU. The browser explicitly sends `auto`, `cpu`, or `gpu`.
 
 ## Firefox
 
-### Persistent install
-
-Use the repository-root Firefox package:
-
-[`chatterbox-tts-addon.xpi`](chatterbox-tts-addon.xpi)
-
-In Firefox: **Add-ons and themes → gear menu → Install Add-on From File…**
-
-### Development install
+For development:
 
 1. Open `about:debugging#/runtime/this-firefox`.
 2. Select **Load Temporary Add-on**.
 3. Select `chatterbox-tts-addon/manifest.json`.
 
-### Build an unsigned Firefox XPI
+Build an unsigned XPI:
 
 ```bash
 ./build-xpi.sh
 ```
 
-The result is written under `dist/`.
+Mozilla signing is required for a normal persistent release install.
 
 ## Chrome / Chromium
 
-The Chrome port is a **Manifest V3** extension. It uses a service worker instead of Firefox's persistent background page and an offscreen document for tab-owned audio playback.
-
-### Recommended local install
+For local development:
 
 1. Open `chrome://extensions`.
 2. Enable **Developer mode**.
 3. Choose **Load unpacked**.
 4. Select `chatterbox-tts-addon-chrome/`.
 
-This is the normal route for local use. A standalone CRX is not generally drag-installable in normal consumer Chrome.
-
-### Chrome Web Store package
-
-The Web Store accepts a ZIP, not a CRX:
+Build the Chrome Web Store ZIP:
 
 ```bash
 cd chatterbox-tts-addon-chrome
 ./build-zip.sh
 ```
 
-The ZIP is written to `chatterbox-tts-addon-chrome/dist/` and contains only extension runtime files.
-
-### Self-hosted / enterprise CRX
-
-A CRX is mainly useful for self-hosting with an update manifest plus enterprise policy, or as a signed archive.
+A CRX can also be produced for archive/self-host/managed deployments:
 
 ```bash
-cd chatterbox-tts-addon-chrome
 ./build-crx.sh
 ```
 
-The CRX signing key is private and must **never be committed**. By default the builder stores it outside the repository under your user config directory. You can override the path with `CRX_KEY=/secure/path/key.pem`.
-
-See [`chatterbox-tts-addon-chrome/README.md`](chatterbox-tts-addon-chrome/README.md) for the MV3 implementation details and Chrome-specific traps.
+The CRX private key is stored outside the repository by default. **Never commit a private `.pem`/`.key` file.**
 
 ## Voices
 
-Two 30-second starter references are included under `chatterbox-tts-addon/samples/voices/`:
-
-- **Vale** — installed as the initial default reference.
-- **Arbor** — installed alongside Vale and available from Voice Lab.
-
-Voice Lab can also create references from audio or video. FFmpeg converts the selected source into a mono 24 kHz WAV. Supported reference lengths are 10, 15, 20, 30, 45 and 60 seconds.
-
-Managed voices live under:
+Bundled starter references live under `chatterbox-tts-addon/samples/voices/`. Voice Lab can create additional references from audio or video and stores managed voices under:
 
 ```text
 ~/.local/share/chatterbox-tts/voices/
@@ -165,80 +162,62 @@ Managed voices live under:
 
 ## Stop behaviour
 
-Stopping from either browser immediately halts playback and invalidates queued browser work. It also tells the bridge to reject later chunks belonging to the cancelled job.
+Stop immediately halts browser playback and cancels queued work. A synthesis request already executing inside Chatterbox is not forcibly killed mid-generation; its result is discarded if no longer needed and the service exits normally after the idle timeout.
 
-An inference request already running inside Chatterbox is **not forcibly killed mid-generation**. Its result is discarded if no longer needed, and the Chatterbox service exits normally after the idle timeout.
+## Optional Whisper STT
 
-## Privacy
+`openwebui_audio_bridge.py` can also expose an OpenAI-compatible transcription endpoint. Whisper is optional and is not required by either browser extension.
 
-The browser extension sends selected/page text to `http://127.0.0.1:8010` for local synthesis. This project does not send that text to a hosted TTS service.
-
-Firefox/AMO still treats the localhost hand-off as transmission outside the extension itself, so the Firefox manifest declares required `websiteContent` data collection.
-
-## Validation
-
-Run:
+Configure it with environment variables rather than local paths:
 
 ```bash
-make validate
-```
-
-This checks the Python backend, Firefox MV2 source and packaging, and Chrome MV3 source/manifest/ZIP packaging. The same validation runs in GitHub Actions on pushes and pull requests.
-
-## Firefox AMO notes
-
-The Firefox source intentionally does not hard-code a `browser_specific_settings.gecko.id`; AMO assigns the permanent ID to the signed package. Future Firefox 4.x uploads should use **Upload a New Version** from the existing Chatterbox TTS Developer Hub entry rather than submitting a new add-on.
-
-There is currently no Firefox `update_url` in the manifest, so GitHub-hosted XPI installs require manual upgrades unless an update manifest is added later.
-
-## Optional Open WebUI STT bridge
-
-`openwebui_audio_bridge.py` also exposes an OpenAI-compatible transcription endpoint, but **Whisper STT is optional and is not required by either browser add-on**.
-
-To enable it:
-
-```bash
-export WHISPER_MODEL=/path/to/your/model
+export WHISPER_MODEL=/path/to/model
 export WHISPER_WORKER=/path/to/whisper_worker.py
-# Optional if the worker needs a different environment:
+# optional
 export WHISPER_PYTHON=/path/to/python
 ```
+
+Without those values, TTS works normally and STT reports itself as unconfigured.
 
 ## Configuration
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `CHATTERBOX_INSTALL_ROOT` | `~/.local/share/chatterbox-tts` | Backend install directory |
-| `CHATTERBOX_MODEL_DIR` | `<install>/models/chatterbox-nano` | Local model directory |
+| `CHATTERBOX_MODEL_DIR` | `<install>/models/chatterbox-nano` | Model directory |
 | `CHATTERBOX_REFERENCE_ROOT` | `<install>/voices` | Managed voice library |
-| `CHATTERBOX_REFERENCE_WAV` | bundled Vale reference after normal install | Default voice reference |
-| `CHATTERBOX_IDLE_SECONDS` | `1200` | Service idle-exit delay |
+| `CHATTERBOX_IDLE_SECONDS` | `1200` | Backend idle-exit delay |
 | `CHATTERBOX_CHUNK_CHARS` | `500` | Internal TTS chunk size |
-| `CHATTERBOX_PORT` | `8020` | Chatterbox service port |
-| `CHATTERBOX_VOICE_APP_PORT` | `8030` | Voice Lab port |
+| `CHATTERBOX_ENABLE_GPU` | `auto` | Enable/disable accelerator setup |
+| `CHATTERBOX_TORCH_MODE` | `auto` | PyTorch install mode: `auto`, `cpu`, `default` |
+| `CHATTERBOX_TORCH_INDEX_URL` | unset | Optional custom PyTorch package index |
+| `CHATTERBOX_GPU_DEVICE` | auto-detected | Optional explicit PyTorch accelerator device |
 | `BRIDGE_API_KEY` | `local-dev-key` | Loopback bridge token |
 
-The services bind to loopback only. If you deliberately expose them to a network, replace the development API key and treat the bridge as a network-facing application.
+## Validation
+
+```bash
+make validate
+```
+
+This checks Python, shell, manifests, Firefox/Chrome JavaScript, Firefox XPI packaging, Chrome ZIP packaging, and guards against accidentally committing private keys or machine-specific paths.
 
 ## Repository layout
 
 ```text
 .
-├── chatterbox-tts-addon.xpi       # Firefox package
-├── chatterbox-tts-chrome.crx      # Chrome CRX archive/self-host package
-├── chatterbox-tts-addon/          # Firefox MV2 source + backend installer/voices
-├── chatterbox-tts-addon-chrome/   # Chrome MV3 source + Chrome build helpers
-├── templates/                     # Voice Lab HTML template
-├── chatterbox_nano_server.py      # Local Chatterbox-Nano API
-├── openwebui_audio_bridge.py      # Browser/OpenAI-compatible loopback bridge
+├── chatterbox-tts-addon/          # Firefox MV2 source + installer + voices
+├── chatterbox-tts-addon-chrome/   # Chrome MV3 source + build helpers
+├── templates/                     # Voice Lab template
+├── chatterbox_nano_server.py      # CPU/accelerator Chatterbox service
+├── openwebui_audio_bridge.py      # Loopback routing bridge
 ├── chatterbox_voice_app.py        # Voice Lab backend
 ├── build-xpi.sh                   # Firefox XPI builder
-├── Makefile                       # Cross-browser validation entry point
-└── .github/workflows/             # GitHub validation workflow
+└── Makefile                       # Cross-browser validation
 ```
 
 ## Licence
 
 Apache License 2.0. See [`LICENSE`](LICENSE).
 
-Chatterbox itself is an upstream dependency from Resemble AI and is installed from its own repository by the setup script; its upstream licence and notices apply to that project.
+Chatterbox is an upstream Resemble AI dependency and retains its own upstream licence/notices.
